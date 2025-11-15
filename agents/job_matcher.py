@@ -6,6 +6,8 @@ Finds relevant job opportunities based on user profile
 import os
 from dotenv import load_dotenv
 from google import genai
+from tools.job_api import JobSearchAPI
+
 
 load_dotenv()
 
@@ -66,7 +68,16 @@ Be specific and actionable.
         return response.text
 
     def find_opportunities(self, role_title, location="Remote"):
-        """Find specific job opportunities"""
+        """Find specific job opportunities using real API"""
+        
+        api = JobSearchAPI()
+        jobs = api.search_jobs(keywords=role_title, location=location)
+        
+        formatted = api.format_job_listings(jobs)
+        
+        print(formatted)
+        return formatted
+
         
         prompt = f"""
 Help find job opportunities for this role:

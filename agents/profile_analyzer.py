@@ -6,6 +6,7 @@ Analyzes user profiles and resumes to extract key information
 import os
 from dotenv import load_dotenv
 from google import genai
+from tools.pdf_parser import ResumeParser
 
 load_dotenv()
 
@@ -36,7 +37,15 @@ When analyzing profiles:
 """
 
     def parse_resume(self, resume_text):
-        """Parse and analyze resume text"""
+        """Parse and analyze resume using actual parser"""
+        
+        parser = ResumeParser()
+        parsed_data = parser.parse_text_resume(resume_text)
+        
+        formatted = parser.format_parsed_data(parsed_data)
+        
+        print(formatted)
+        return formatted
         
         prompt = f"""
 Analyze this resume/profile and extract key information:
