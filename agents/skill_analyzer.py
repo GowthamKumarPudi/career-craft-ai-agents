@@ -6,6 +6,8 @@ Identifies skill gaps and recommends learning paths
 import os
 from dotenv import load_dotenv
 from google import genai
+from tools.skill_extractor import SkillExtractor
+from tools.learning_resources import LearningResourcesFinder
 
 load_dotenv()
 
@@ -18,6 +20,8 @@ class SkillAnalyzerAgent:
     def __init__(self):
         self.model = 'gemini-2.0-flash'
         self.name = "Skill Analyzer"
+        self.skill_extractor = SkillExtractor()
+        self.learning_finder = LearningResourcesFinder()
         self.instruction = """
 You are a Skill Gap Analysis Specialist. Your expertise includes:
 - Skill assessment and evaluation
@@ -33,6 +37,38 @@ When analyzing skills:
 4. Recommend learning resources
 5. Create structured learning plans
 """
+
+    def extract_and_analyze_skills(self, resume_or_profile_text: str):
+        """Extract skills from text and provide analysis"""
+        
+        print(f"\n{'='*70}")
+        print("Analyzing skills from your profile...")
+        print(f"{'='*70}\n")
+        
+        # Extract skills
+        extracted = self.skill_extractor.extract_skills(resume_or_profile_text)
+        print(self.skill_extractor.format_extracted_skills(extracted))
+        
+        # Rank skills by demand
+        all_skills = [skill for skills_list in extracted.values() for skill in skills_list]
+        if all_skills:
+            ranked = self.skill_extractor.rank_skills(all_skills)
+            print(self.skill_extractor.format_ranked_skills(ranked))
+        
+        return extracted
+
+    def compare_skills(self, user_skills: list, required_skills: list):
+        """Compare user skills with required skills"""
+        
+        print(f"\n{'='*70}")
+        print("Comparing skills...")
+        print(f"{'='*70}\n")
+        
+        gaps = self.skill_extractor.find_skill_gaps(user_skills, required_skills)
+        
+        print(self.skill_extractor.format_skill_gaps(gaps))
+        
+        return gaps
 
     def identify_gaps(self, current_skills, target_role):
         """Identify skill gaps for target role"""
@@ -94,6 +130,20 @@ Be detailed and realistic.
         
         return response.text
 
+    def create_learning_path_with_resources(self, skills_to_learn: list):
+        """Create learning path with actual course resources"""
+        
+        print(f"\n{'='*70}")
+        print("Creating personalized learning path...")
+        print(f"{'='*70}\n")
+        
+        path = self.learning_finder.create_learning_path(skills_to_learn)
+        formatted = self.learning_finder.format_learning_path(path)
+        
+        print(formatted)
+        
+        return path
+
     def recommend_certifications(self, user_profile, target_role):
         """Recommend relevant certifications"""
         
@@ -148,6 +198,62 @@ Focus on the Indian market trends.
         
         return response.text
 
+    def suggest_next_skills(self, current_skills: list, career_goal: str = ""):
+        """Suggest next skills to learn based on current skills and goal"""
+        
+        suggestions = self.skill_extractor.suggest_skills(current_skills, career_goal)
+        
+        print(f"\n{'='*70}")
+        print(f"📚 SUGGESTED SKILLS FOR: {career_goal}")
+        print(f"{'='*70}\n")
+        
+        if suggestions:
+            print("Based on your current skills and career goal, consider learning:\n")
+            for i, skill in enumerate(suggestions, 1):
+                print(f"   {i}. {skill}")
+            
+            # Find resources for suggested skills
+            print(f"\n{'='*70}")
+            print("Learning Resources:\n")
+            for skill in suggestions[:3]:
+                resources = self.learning_finder.find_resources(skill)
+                if resources:
+                    best = max(resources, key=lambda x: x['rating'])
+                    print(f"   {skill}: {best['name']} ({best['platform']})")
+                    print(f"              Duration: {best['duration_hours']} hours | Cost: ₹{best['cost_inr']}")
+        else:
+            print("No suggestions available. Please provide more information.")
+        
+        return suggestions
+
+    def analyze_resume_skills(self, resume_text: str):
+        """Complete analysis of skills from resume"""
+        
+        print(f"\n{'='*70}")
+        print("📄 COMPREHENSIVE SKILL ANALYSIS")
+        print(f"{'='*70}\n")
+        
+        # Extract skills
+        extracted = self.skill_extractor.extract_skills(resume_text)
+        print(self.skill_extractor.format_extracted_skills(extracted))
+        
+        # Get all skills
+        all_skills = [skill for skills_list in extracted.values() for skill in skills_list]
+        
+        if all_skills:
+            # Rank by demand
+            ranked = self.skill_extractor.rank_skills(all_skills)
+            print("\n📊 SKILLS RANKED BY DEMAND:")
+            print(self.skill_extractor.format_ranked_skills(ranked))
+            
+            return {
+                "extracted_skills": extracted,
+                "all_skills": all_skills,
+                "ranked_skills": ranked
+            }
+        
+        return {"extracted_skills": extracted, "all_skills": [], "ranked_skills": []}
+
     def process_analysis(self, query_type, **kwargs):
         """Process skill analysis requests"""
         
@@ -163,6 +269,9 @@ Focus on the Indian market trends.
             skill = kwargs.get('skill', 'Python')
             level = kwargs.get('level', 'Beginner')
             result = self.create_learning_path(skill, level)
+        elif query_type == "learning_with_resources":
+            skills = kwargs.get('skills', [])
+            result = self.create_learning_path_with_resources(skills)
         elif query_type == "certifications":
             profile = kwargs.get('profile', '')
             role = kwargs.get('target_role', '')
@@ -170,10 +279,28 @@ Focus on the Indian market trends.
         elif query_type == "trends":
             industry = kwargs.get('industry', 'Software Development')
             result = self.analyze_industry_trends(industry)
+        elif query_type == "extract":
+            resume = kwargs.get('resume_text', '')
+            result = self.extract_and_analyze_skills(resume)
+        elif query_type == "compare":
+            user_skills = kwargs.get('user_skills', [])
+            required_skills = kwargs.get('required_skills', [])
+            result = self.compare_skills(user_skills, required_skills)
+        elif query_type == "suggest":
+            current_skills = kwargs.get('current_skills', [])
+            goal = kwargs.get('career_goal', '')
+            result = self.suggest_next_skills(current_skills, goal)
+        elif query_type == "resume_analysis":
+            resume_text = kwargs.get('resume_text', '')
+            result = self.analyze_resume_skills(resume_text)
         else:
             result = "Query type not recognized"
         
-        print(result)
+        if isinstance(result, dict) and query_type not in ['learning_with_resources', 'compare', 'resume_analysis']:
+            print(result)
+        elif isinstance(result, str):
+            print(result)
+        
         print(f"\n{'='*70}\n")
         
         return result
@@ -188,15 +315,47 @@ def main():
     
     analyzer = SkillAnalyzerAgent()
     
+    # Sample resume for testing
+    sample_resume = """
+Gowtham Kumar Pudi
+Final year BTech Student - Computer Science
+
+SKILLS:
+Technical: Python, JavaScript, React, SQL, HTML, CSS, Git
+AI/ML: TensorFlow, scikit-learn, Pandas, NumPy
+Cloud: AWS, Google Cloud
+Soft Skills: Problem-solving, Communication, Teamwork
+
+EXPERIENCE:
+AI/ML Intern - 3 months
+Developed machine learning models using Python
+Analyzed datasets with Pandas and visualized with Matplotlib
+
+EDUCATION:
+BTech in Computer Science, CGPA: 8.2/10
+"""
+    
+    print("\n--- EXTRACT AND ANALYZE SKILLS ---")
+    analyzer.process_analysis("extract", resume_text=sample_resume)
+    
     print("\n--- IDENTIFY SKILL GAPS ---")
     analyzer.process_analysis("gaps",
                              current_skills="Python, JavaScript, HTML/CSS, SQL",
                              target_role="Data Scientist")
     
-    print("\n--- CREATE LEARNING PATH ---")
-    analyzer.process_analysis("learning",
-                             skill="Machine Learning",
-                             level="Beginner")
+    print("\n--- CREATE LEARNING PATH WITH RESOURCES ---")
+    analyzer.process_analysis("learning_with_resources",
+                             skills=["Machine Learning", "Python", "SQL"])
+    
+    print("\n--- COMPARE SKILLS ---")
+    analyzer.process_analysis("compare",
+                             user_skills=["Python", "JavaScript", "React"],
+                             required_skills=["Python", "Data Analysis", "SQL", "Machine Learning"])
+    
+    print("\n--- SUGGEST NEXT SKILLS ---")
+    analyzer.process_analysis("suggest",
+                             current_skills=["Python", "SQL", "Git"],
+                             career_goal="Data Science")
     
     print("\n--- RECOMMEND CERTIFICATIONS ---")
     analyzer.process_analysis("certifications",
