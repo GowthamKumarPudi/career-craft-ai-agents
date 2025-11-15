@@ -1,0 +1,32 @@
+# Environment
+.env
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+# Logs
+*.log
+logs/
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+# Other
+.env.local
